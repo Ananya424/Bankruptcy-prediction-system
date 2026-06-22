@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BankruptcyAI — Financial Health Predictor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:       #080c14;
+      --surface:  #0f172a;
+      --card:     #131c2e;
+      --border:   #1e2d45;
+      --accent:   #3b82f6;
+      --accent2:  #06b6d4;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --danger:   #ef4444;
+      --success:  #22c55e;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Noise overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ── Grid background ── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none; z-index: 0;
+    }
+
+    .wrap {
+      position: relative; z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .logo-tag {
+      display: inline-block;
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 4px 12px;
+      border-radius: 2px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 14px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+      line-height: 1.7;
+    }
+
+    .accent-line {
+      width: 60px; height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      margin: 20px auto;
+    }
+
+    /* ── Error banner ── */
+    .error-banner {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 8px;
+      padding: 14px 18px;
+      color: #fca5a5;
+      font-size: 13px;
+      margin-bottom: 28px;
+    }
+
+    /* ── Form card ── */
+    .form-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .form-section {
+      padding: 28px 32px;
+      border-bottom: 1px solid var(--border);
+    }
+    .form-section:last-child { border-bottom: none; }
+
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--accent2);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Company + Year row ── */
+    .top-row {
+      display: grid;
+      grid-template-columns: 1fr 160px;
+      gap: 16px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    input[type="text"],
+    input[type="number"] {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%;
+    }
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+    input::placeholder { color: #334155; }
+
+    /* ── Ratio grid ── */
+    .ratio-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+    }
+
+    .ratio-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .ratio-label {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .ratio-code {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Submit ── */
+    .submit-row {
+      padding: 28px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .submit-note {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 400px;
+    }
+
+    .submit-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 14px 32px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      white-space: nowrap;
+    }
+    .submit-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .submit-btn:active { transform: translateY(0); }
+
+    .btn-arrow {
+      font-size: 18px;
+      transition: transform 0.2s;
+    }
+    .submit-btn:hover .btn-arrow { transform: translateX(4px); }
+
+    /* ── Quick fill examples ── */
+    .examples {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .example-btn {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .example-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .example-btn.healthy:hover  { border-color: var(--success); color: var(--success); }
+    .example-btn.distressed:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ── Loading overlay ── */
+    #loading {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(8,12,20,0.85);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+    }
+    #loading.active { display: flex; }
+
+    .spinner {
+      width: 48px; height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      color: var(--muted);
+      letter-spacing: 2px;
+    }
+
+    @media (max-width: 600px) {
+      .top-row { grid-template-columns: 1fr; }
+      .form-section { padding: 20px; }
+      .submit-row { flex-direction: column; align-items: stretch; }
+      .submit-btn { justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">ANALYSING...</div>
+</div>
+
+<div class="wrap">
+
+  <header>
+    <div class="logo-tag">Hybrid AI System</div>
+    <h1>Bankruptcy Risk<br>Predictor</h1>
+    <div class="accent-line"></div>
+    <p class="subtitle">
+      LSTM · Random Forest · XGBoost · Stacking Ensemble · SHAP Explainability
+    </p>
+  </header>
+
+  {% if error %}
+  <div class="error-banner">⚠ {{ error }}</div>
+  {% endif %}
+
+  <!-- Quick fill buttons -->
+  <div class="examples">
+    <span style="font-size:11px; color:var(--muted); align-self:center; margin-right:4px;">Quick fill:</span>
+    <button class="example-btn healthy"    onclick="fillExample('healthy')">🟢 Company A</button>
+    <button class="example-btn distressed" onclick="fillExample('distressed')">🔴 Distressed Company</button>
+    <button class="example-btn"            onclick="fillExample('apple')">🍎 Apple 2023</button>
+    <button class="example-btn"            onclick="clearForm()">✕ Clear</button>
+  </div>
+
+  <form action="/predict" method="POST" id="predForm">
+    <div class="form-card">
+
+      <!-- Company info -->
+      <div class="form-section">
+        <div class="section-title">Company Details</div>
+        <div class="top-row">
+          <div class="field">
+            <label>Company Name</label>
+            <input type="text" name="company_name" placeholder="e.g. Apple Inc." value=""/>
+          </div>
+          <div class="field">
+            <label>Financial Year</label>
+            <input type="number" name="year" placeholder="2023" value="2023" min="2000" max="2026"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Financial ratios -->
+      <div class="form-section">
+        <div class="section-title">Financial Ratios (X1 – X18)</div>
+        <div class="ratio-grid">
+          {% for key, label in feature_labels.items() %}
+          <div class="ratio-field">
+            <div class="ratio-label">
+              <span class="ratio-code">{{ key }}</span>
+              <span>{{ label[:28] }}{% if label|length > 28 %}…{% endif %}</span>
+            </div>
+            <input type="number" step="any" name="{{ key }}"
+                   id="inp_{{ key }}" placeholder="0.0" value=""/>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="submit-row">
+        <p class="submit-note">
+          Values should match the scale of your training data.
+          Run <code style="color:var(--accent)">train_df[FINANCIAL_COLS].describe()</code>
+          in Colab to check ranges.
+        </p>
+        <button type="submit" class="submit-btn" onclick="showLoading()">
+          Analyse Risk <span class="btn-arrow">→</span>
+        </button>
+      </div>
+
+    </div>
+  </form>
+
+</div>
+
+<script>
+  function showLoading() {
+    document.getElementById('loading').classList.add('active');
+  }
+
+  // Example data — values calibrated to training data scale
+  const examples = {
+    healthy: {
+      company_name: "Company A", year: 2019,
+      X1: 350.0, X2: 400.0, X3: 50.0, X4: 25.0, X5: 80.0,
+      X6: 80.0, X7: 200.0, X8: 500.0, X9: 500.0, X10: 400.0,
+      X11: 150.0, X12: 50.0, X13: 200.0, X14: 300.0, X15: 100.0,
+      X16: 500.0, X17: 50.0, X18: 400.0
+    },
+    distressed: {
+  company_name: "Distressed Co.",
+  year: 2008,
+
+  X1: 15.32,
+  X2: 17.25,
+  X3: 1.31,
+  X4: -4.24,
+  X5: 0.08,
+  X6: -26.04,
+  X7: 2.24,
+  X8: 26.35,
+  X9: 23.96,
+  X10: 33.02,
+  X11: 0.18,
+  X12: -9.47,
+  X13: 5.13,
+  X14: 10.02,
+  X15: -140.77,
+  X16: 23.96,
+  X17: 16.38,
+  X18: 32.14
+},
+    apple: {
+      company_name: "Apple Inc.", year: 2023,
+      X1: 250.0, X2: 180.0, X3: 120.0, X4: 800.0, X5: 420.0,
+      X6: 380.0, X7: 180.0, X8: 210.0, X9: 800.0, X10: 180.0,
+      X11: 600.0, X12: 300.0, X13: 500.0, X14: 800.0, X15: 50.0,
+      X16: 700.0, X17: 120.0, X18: 600.0
+    }
+  };
+
+  function fillExample(name) {
+    const d = examples[name];
+    document.querySelector('[name="company_name"]').value = d.company_name;
+    document.querySelector('[name="year"]').value = d.year;
+    for (let i = 1; i <= 18; i++) {
+      const el = document.getElementById(`inp_X${i}`);
+      if (el) el.value = d[`X${i}`];
+    }
+  }
+
+  function clearForm() {
+    document.querySelector('[name="company_name"]').value = '';
+    document.querySelector('[name="year"]').value = '2023';
+    for (let i = 1; i <= 18; i++) {
+      const el = document.getElementById(`inp_X${i}`);
+      if (el) el.value = '';
+    }
+  }
+</script>
+</body>
+</html>
